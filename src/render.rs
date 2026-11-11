@@ -1,4 +1,4 @@
-use minijinja::{Environment, context};
+use minijinja::{Environment, Value, context};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -23,11 +23,28 @@ pub enum RenderError {
     Template(#[from] minijinja::Error),
 }
 
+fn aircraft_value(aircraft: &AircraftStatus) -> Value {
+    context! {
+        callsign => aircraft.callsign.as_str(),
+        aircraft_type => aircraft.aircraft_type.as_str(),
+        status => aircraft.status.as_str(),
+    }
+}
+
+fn club_value(club: &ClubStatus) -> Value {
+    let aircraft: Vec<Value> = club.aircraft.iter().map(aircraft_value).collect();
+    context! {
+        name => club.name.as_str(),
+        aircraft => aircraft,
+    }
+}
+
 pub fn render_html(clubs: &[ClubStatus], rendered_at: &str) -> Result<String, RenderError> {
     let mut env = Environment::new();
     env.add_template("index.html", TEMPLATE)?;
 
     let template = env.get_template("index.html")?;
+    let clubs: Vec<Value> = clubs.iter().map(club_value).collect();
     let html = template.render(context! {
         clubs => clubs,
         rendered_at => rendered_at,
